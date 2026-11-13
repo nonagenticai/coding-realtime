@@ -1,0 +1,58 @@
+name: CI
+
+# The public pipeline: nonagenticai/ci-workflows/python-service.yml on GitHub-hosted runners,
+# with no repository secrets, publishing ghcr.io/nonagenticai/coding-realtime from main.
+#
+# There is no deploy job. Flux in gitops-production watches the ImagePolicy for this service and
+# rolls it when the image changes — the repo never holds cluster credentials.
+#
+# While this repository was private it ran the private gitops-production archetype; that job is
+# gone rather than gated because GitHub parses a called workflow even when the calling job's `if:`
+# is false, so a public repository that keeps a private `uses:` cannot dispatch CI at all.
+#
+# - test scope (`-m "not integration"`) lives in pyproject [tool.pytest.ini_options]
+#   addopts → unit-only on the default tests/ dir.
+# - no coverage gate: never measure or gate coverage in CI. Passing either former input fails the
+#   run at startup (startup_failure, no jobs), so do not re-add them.
+# - [tool.bandit] skips=["B108","B608"] is honoured by the archetype via -c pyproject.toml.
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  ci:
+    uses: nonagenticai/ci-workflows/.github/workflows/python-service.yml@main
+    permissions:
+      contents: read
+      packages: write
+    with:
+      image_name: coding-realtime
+      src_dir: src
+      # The archetype default is 30 and this repo has come within 30 SECONDS of it. Measured
+      # duration of the build+smoke JOB on the private runners: 29m30s, 15m25s, 27m14s. A
+      # cancelled check reports as *pending* rather than red, so a tight cap can hide an
+      # undeployed fix behind a green-looking main. 50 matches the other services.
+      build_timeout_minutes: 50
+      # Preserve the bespoke /health smoke against the freshly-pushed image.
+      build_smoke: |
+        docker run -d --name smoke-coding-realtime \
+          -e ENABLE_AUTH=false \
+          -e ENVIRONMENT=testing \
+          -e REDIS_URL=redis://localhost:6379/0 \
+          -p 18694:8694 "$IMAGE_REF"
+        ok=0
+        for i in $(seq 1 30); do
+          if curl -sf http://localhost:18694/health >/dev/null 2>&1; then
+            echo "health ok (attempt $i)"; ok=1; break
+          fi
+          sleep 1
+        done
+        docker logs smoke-coding-realtime || true
+        docker rm -f smoke-coding-realtime || true
+        [ "$ok" -eq 1 ]

@@ -1,0 +1,4 @@
+# Each line is one vulnerability ID to skip during pip-audit.
+# Format: ID  # package date (reason)
+# Add only when no fix version exists upstream. Re-evaluate periodically.
+PYSEC-2025-183  # pyjwt 2.12.1 — no fix version available upstream (latest is 2.12.1); revisit when pyjwt > 2.12.1 is published
