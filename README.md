@@ -1,5 +1,9 @@
 # coding-realtime
 
+[![CI](https://github.com/nonagenticai/coding-realtime/actions/workflows/ci.yml/badge.svg)](https://github.com/nonagenticai/coding-realtime/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/github/v/release/nonagenticai/coding-realtime)](https://github.com/nonagenticai/coding-realtime/releases)
+[![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
+
 WebSocket gateway for the code-graph-helper platform. Provides persistent, bidirectional connections between IDE clients and the analysis backend so that code changes produce instant feedback -- parse results, complexity scores, diagnostics -- without polling.
 
 The service does not perform analysis itself. It delegates parsing to **coding-analysis** over HTTP and validates containers through **coding-containers**. Its value is the real-time delivery layer: connection lifecycle management, per-container broadcast pub/sub, rate limiting, health monitoring, and metrics collection.
@@ -34,7 +38,7 @@ First match wins -- a later mechanism only runs if every earlier one missed.
    practice **this is the only step that ever fires** and steps 2-3 are unreachable for
    every current caller.
 2. **`Authorization: Bearer <license-token>`** -- introspected against
-   `licenses.licenses.svc.cluster.local:8544/license/introspect` (2s timeout, successful
+   `licenses:8544/license/introspect` (2s timeout, successful
    lookups cached 5 min). Reached **only** when no tenant header is present, and only
    functional when `LICENSE_INTROSPECT_URL` is set on the Deployment. With it unset,
    `_introspect_license` logs `"LICENSE_INTROSPECT_URL not set; license introspection
@@ -273,3 +277,19 @@ The Dockerfile uses a two-stage build with Python 3.14 and uv. Production image 
 ```bash
 docker compose up -d
 ```
+
+## Security
+
+Report vulnerabilities privately through the repository's Security tab — see
+[`SECURITY.md`](SECURITY.md). Do not open a public issue for a security problem.
+
+## Contributing
+
+Issues and pull requests are welcome. See
+[`CONTRIBUTING.md`](https://github.com/nonagenticai/.github/blob/main/CONTRIBUTING.md) for the
+organisation-wide rules; setup, test and lint commands are in this README. Commits carry DCO
+sign-off.
+
+## License
+
+Apache-2.0 — see [`LICENSE`](LICENSE) and [`NOTICE`](NOTICE).
