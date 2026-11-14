@@ -46,10 +46,10 @@ First match wins -- a later mechanism only runs if every earlier one missed.
 3. **Istio-forwarded user headers** -- `X-User-Id`, `X-User-Name`, `X-User-Email`,
    `X-User-Roles`, `X-Organization-Id`
 4. **Trusted-network bypass** -- source IP in `TRUSTED_CIDRS` gets `DEFAULT_TENANT_ID`.
-   ⚠️ The library default is `127.0.0.1/32,::1/128,192.168.0.0/16,172.16.0.0/12,10.0.0.0/8`.
-   `10.0.0.0/8` contains the k3s pod CIDR `10.42.0.0/16`, so unless the Deployment sets
-   `TRUSTED_CIDRS: ""` this grants a tenant to **any pod in the cluster**, credentials or
-   not. This is a network-position bypass, not a "loopback" convenience.
+   ⚠️ Both are inert by default: the library's `TRUSTED_CIDRS` default is **empty** (it used
+   to cover RFC 1918, including the k3s pod CIDR), and `DEFAULT_TENANT_ID` is `None` when
+   unset, so arming the bypass without naming a tenant refuses the caller instead of
+   inventing one. This is a network-position bypass, not a "loopback" convenience.
 5. **Dev/test API key** -- `Authorization: Bearer <DEV_API_KEY|TEST_API_KEY>` when
    `ENVIRONMENT=development|testing`
 
@@ -177,7 +177,7 @@ All REST routes require a valid tenant context (via `X-Tenant-Id` header or auth
 |------|-------------|
 | `WS /api/broadcast/subscribe?connection_id=...&container_name=...` | Subscribe to container broadcast events. |
 
-**Query params:** `connection_id` (required), `container_name` (required), `tenant_id` (required), `event_types` (optional, comma-separated), `tags` (optional, comma-separated), `priority` (optional: low/normal/high/critical), `replay_history` (optional bool), `replay_limit` (optional int).
+**Query params:** `connection_id` (required), `container_name` (required), `event_types` (optional, comma-separated), `tags` (optional, comma-separated), `priority` (optional: low/normal/high/critical), `replay_history` (optional bool), `replay_limit` (optional int). The tenant comes from the `X-Tenant-Id` header, not a query parameter.
 
 **Client -> Server messages:** `replay_history`, `get_status`.
 
@@ -213,17 +213,17 @@ All settings are loaded from environment variables (see `src/config/settings.py`
 | `VERSION` | `1.0.0` | Service version |
 | `ENVIRONMENT` | `production` | `production` or `development` |
 | `PORT` | `8694` | HTTP/WS listen port |
-| `REDIS_URL` | `redis://code-graph-redis:6379/0` | Redis for pub/sub and rate-limit state |
+| `REDIS_URL` | *(empty)* | Redis for pub/sub and rate-limit state. No code-side default; the Deployment injects it. |
 | `DATABASE_URL` | -- | Optional PostgreSQL URL |
 | `PGBOUNCER_URL` | -- | Optional PgBouncer URL |
 | `ENABLE_AUTH` | `true` | Enable auth + tenant middleware |
-| `DEFAULT_TENANT_ID` | `n8n-dev` | Fallback tenant |
+| `LICENSE_INTROSPECT_URL` | *(unset)* | Optional licence introspection endpoint read by the `coding-client` auth middleware; when unset, Bearer-token introspection is skipped. |
 | `ENABLE_DOCS` | `false` | Enable `/docs` and `/redoc` (auto-enabled in development) |
 | `LOG_LEVEL` | `INFO` | Logging level |
 | `LOG_FORMAT` | `json` | `json` or `text` |
 | `CORS_ORIGINS` | `["*"]` | Allowed CORS origins (Istio handles CORS in production) |
-| `CODING_ANALYSIS_URL` | `http://coding-analysis:8688` | coding-analysis base URL |
-| `CODING_CONTAINERS_URL` | `http://coding-containers:8691` | coding-containers base URL |
+| `CODING_ANALYSIS_URL` | *(empty)* | coding-analysis base URL. No code-side default; the Deployment injects it. |
+| `CODING_CONTAINERS_URL` | *(empty)* | coding-containers base URL. No code-side default; the Deployment injects it. |
 | `WS_PING_INTERVAL` | `30` | Seconds between WebSocket pings |
 | `WS_PING_TIMEOUT` | `10` | Seconds to wait for pong |
 | `WS_MAX_FAILED_PINGS` | `3` | Failed pings before marking stale |
@@ -234,6 +234,10 @@ All settings are loaded from environment variables (see `src/config/settings.py`
 | `OTLP_TRACES_ENDPOINT` | -- | OpenTelemetry OTLP endpoint |
 | `OTLP_INSECURE` | `true` | Use insecure OTLP transport |
 | `OTEL_SERVICE_NAME` | `coding-realtime` | OTLP service name |
+
+`DEFAULT_TENANT_ID` is deliberately **not** a service setting. The tenant default comes from
+`coding-client`, which exposes `None` when unset; the one call site that needs it refuses rather
+than guessing. `TRUSTED_CIDRS` is empty by default for the same reason.
 
 ## Service Dependencies
 
@@ -251,7 +255,7 @@ All settings are loaded from environment variables (see `src/config/settings.py`
 uv sync
 
 # Run locally (auth disabled, docs enabled)
-ENVIRONMENT=development ENABLE_AUTH=false uvicorn main:app --host 0.0.0.0 --port 8694 --reload
+ENVIRONMENT=development ENABLE_AUTH=false uvicorn --app-dir src main:app --host 0.0.0.0 --port 8694 --reload
 
 # Lint and format
 ruff check src/ tests/
@@ -280,8 +284,8 @@ docker compose up -d
 
 ## Security
 
-Report vulnerabilities privately through the repository's Security tab — see
-[`SECURITY.md`](SECURITY.md). Do not open a public issue for a security problem.
+Report vulnerabilities privately through the repository's Security tab. Do not open a public
+issue for a security problem.
 
 ## Contributing
 
@@ -306,4 +310,4 @@ enforcement point). Neither is required to run this code.
 
 ## License
 
-Apache-2.0 — see [`LICENSE`](LICENSE) and [`NOTICE`](NOTICE).
+Apache-2.0 — see [`LICENSE`](LICENSE).
