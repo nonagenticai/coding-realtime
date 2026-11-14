@@ -489,7 +489,7 @@ def calculate_aggregated_results(file_results: list[dict[str, Any]]) -> dict[str
     total_complexity = sum(r.get("complexity_score", 0) for r in successful_results)
     total_loc = sum(r.get("lines_of_code", 0) for r in successful_results)
 
-    languages = set(r.get("language") for r in successful_results if r.get("language"))
+    languages = {str(lang) for r in successful_results if (lang := r.get("language")) is not None}
 
     avg_complexity = total_complexity / len(successful_results) if successful_results else 0
     avg_loc = total_loc / len(successful_results) if successful_results else 0

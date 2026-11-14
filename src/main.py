@@ -6,7 +6,7 @@ Wires up routers, middleware, Redis, and exception handling.
 from __future__ import annotations
 
 import logging
-from collections.abc import AsyncIterator
+from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 from datetime import UTC, datetime
 from enum import Enum
@@ -58,7 +58,7 @@ async def _redis_ping(client: aioredis.Redis) -> bool:
 
 
 @asynccontextmanager
-async def lifespan(app: FastAPI) -> AsyncIterator[None]:
+async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
     """Application startup / shutdown events."""
     global _redis  # noqa: PLW0603
 
